@@ -23,9 +23,6 @@ export default function Navbar() {
             A
           </div>
           <span className="font-bold text-[15px] text-[#111]">AdGuard</span>
-          <span className="text-[10px] font-semibold text-[#6B7280] border border-[#E5E7EB] rounded px-1.5 py-0.5">
-            BETA
-          </span>
         </Link>
 
         {/* Nav links */}
