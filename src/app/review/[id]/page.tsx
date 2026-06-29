@@ -88,11 +88,46 @@ function DonutGauge({ score }: { score: number }) {
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F3F4F6" strokeWidth="20" />
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="20" strokeLinecap="round"
         strokeDasharray={`${fillLen} ${circumference}`} transform={`rotate(-90 ${cx} ${cy})`} />
-      <text x={cx} y={cy - 10} textAnchor="middle" fontSize="44" fontWeight="900" fill={color}
+      <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="central" fontSize="44" fontWeight="900" fill={color}
         fontFamily="-apple-system, BlinkMacSystemFont, sans-serif">{score}</text>
-      <text x={cx} y={cy + 18} textAnchor="middle" fontSize="13" fill="#6B7280"
+      <text x={cx} y={cy + 26} textAnchor="middle" dominantBaseline="central" fontSize="13" fill="#6B7280"
         fontFamily="-apple-system, BlinkMacSystemFont, sans-serif">{label}</text>
     </svg>
+  );
+}
+
+// ── Related evidence group (BE related_* arrays) ──────────────────────────────
+function RelatedGroup({
+  title,
+  color,
+  items,
+}: {
+  title: string;
+  color: string;
+  items: { id: string; title: string; snippet?: string; similarity: number }[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+        <span className="text-[12px] font-bold text-[#111]">{title}</span>
+        <span className="text-[10px] text-[#9CA3AF]">{items.length}</span>
+      </div>
+      <div className="space-y-1.5">
+        {items.slice(0, 3).map((it) => (
+          <div key={it.id} className="rounded-lg border border-[#F3F4F6] bg-[#FAFAFA] p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-semibold text-[#111] truncate">{it.title}</span>
+              <span className="text-[10px] font-bold shrink-0" style={{ color }}>
+                {Math.round(it.similarity * 100)}%
+              </span>
+            </div>
+            {it.snippet && <p className="text-[11px] text-[#9CA3AF] mt-0.5 truncate">{it.snippet}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -287,6 +322,34 @@ export default function ReviewResultPage() {
               </div>
             )}
           </div>
+
+          {/* 관련 근거 — BE RAG 검색 결과 (민감주제/논란사례/신조어/유행어) */}
+          {result.related_topics.length +
+            result.related_issues.length +
+            result.related_slang.length +
+            result.related_trends.length >
+            0 && (
+            <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 mt-4">
+              <p className="text-[11px] text-[#9CA3AF] font-semibold mb-3 uppercase tracking-wider">
+                관련 근거 · RAG 검색 결과
+              </p>
+              <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <RelatedGroup
+                  title="민감 주제"
+                  color="#EF4444"
+                  items={result.related_topics.map((t) => ({
+                    id: t.id,
+                    title: t.title,
+                    snippet: t.description,
+                    similarity: t.similarity,
+                  }))}
+                />
+                <RelatedGroup title="유사 논란 사례" color="#F59E0B" items={result.related_issues} />
+                <RelatedGroup title="관련 신조어" color="#A78BFA" items={result.related_slang} />
+                <RelatedGroup title="관련 유행어" color="#2F6BFF" items={result.related_trends} />
+              </div>
+            </div>
+          )}
         </>
       )}
 
