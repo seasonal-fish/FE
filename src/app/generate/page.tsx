@@ -1,46 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
+import { getTrends, postGenerate, type TrendItem, type GenerateCandidate } from "@/lib/api";
 
 const TONES = ["트렌디", "정중한", "유쾌한", "미니멀"];
 
-const KEYWORDS = [
-  { tag: "#갓생", delta: "▲32%", score: 91 },
-  { tag: "#물멍", delta: "▲21%", score: 72 },
-  { tag: "#갓성비", delta: "▲18%", score: 64 },
-  { tag: "#여름나기", delta: "▲12%", score: 58 },
-  { tag: "#플렉스", delta: "▲9%", score: 51 },
-  { tag: "#디톡스", delta: "▲7%", score: 44 },
-];
-
-const MOCK_RESULTS = [
-  {
-    id: 1,
-    text: "갓생을 실현하는 여름, 워터파크에서 플렉스!",
-    score: 12,
-    level: "안전",
-  },
-  {
-    id: 2,
-    text: "이번 여름 갓성비 워터파크 특가 — 물멍하며 리셋하세요.",
-    score: 8,
-    level: "안전",
-  },
-  {
-    id: 3,
-    text: "진짜 갓생러의 여름 루틴: 워터파크 디톡스",
-    score: 21,
-    level: "주의",
-  },
-];
+const SAFETY_COLOR: Record<string, string> = {
+  안전: "#22C55E",
+  주의: "#F59E0B",
+  위험: "#EF4444",
+  검토실패: "#9CA3AF",
+};
 
 export default function GeneratePage() {
   const [product, setProduct] = useState("");
   const [tone, setTone] = useState("트렌디");
-  const [selectedKeywords, setSelectedKeywords] = useState<string[]>(["#갓생", "#물멍"]);
-  const [results, setResults] = useState<typeof MOCK_RESULTS>([]);
+  const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
+  const [trends, setTrends] = useState<TrendItem[]>([]);
+  const [results, setResults] = useState<GenerateCandidate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [trendsLoading, setTrendsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    getTrends(12)
+      .then((data) => {
+        setTrends(data.trends);
+        if (data.trends.length >= 2) {
+          setSelectedKeywords([data.trends[0].tag, data.trends[1].tag]);
+        }
+      })
+      .catch(() => {
+        // 트렌드 로드 실패 시 빈 상태 유지
+      })
+      .finally(() => setTrendsLoading(false));
+  }, []);
 
   const toggleKeyword = (tag: string) => {
     setSelectedKeywords((prev) =>
@@ -48,13 +43,18 @@ export default function GeneratePage() {
     );
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     if (!product.trim()) return;
+    setError(null);
     setIsLoading(true);
-    setTimeout(() => {
-      setResults(MOCK_RESULTS);
+    try {
+      const data = await postGenerate(product, tone, selectedKeywords);
+      setResults(data.candidates);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "문구 생성에 실패했습니다.");
+    } finally {
       setIsLoading(false);
-    }, 1800);
+    }
   };
 
   return (
@@ -87,16 +87,13 @@ export default function GeneratePage() {
           <label className="text-[12px] text-[#6B7280] font-semibold mb-2 block">톤</label>
           <div className="flex gap-2 flex-wrap">
             {TONES.map((t) => (
-              <button
-                key={t}
-                onClick={() => setTone(t)}
+              <button key={t} onClick={() => setTone(t)}
                 className={clsx(
                   "px-4 py-1.5 rounded-full text-[13px] font-medium border transition-colors",
                   tone === t
                     ? "bg-[#2F6BFF] border-[#2F6BFF] text-white"
                     : "border-[#E5E7EB] text-[#6B7280] hover:border-[#2F6BFF] hover:text-[#2F6BFF]"
-                )}
-              >
+                )}>
                 {t}
               </button>
             ))}
@@ -106,38 +103,49 @@ export default function GeneratePage() {
         {/* Keywords */}
         <div>
           <div className="flex items-center gap-2 mb-2">
-            <label className="text-[12px] text-[#6B7280] font-semibold">
-              활용할 트렌드어
-            </label>
+            <label className="text-[12px] text-[#6B7280] font-semibold">활용할 트렌드어</label>
             <span className="text-[10px] text-[#9CA3AF]">지식베이스 · 활성도순</span>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            {KEYWORDS.map((kw) => (
-              <button
-                key={kw.tag}
-                onClick={() => toggleKeyword(kw.tag)}
-                className={clsx(
-                  "px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors flex items-center gap-1.5",
-                  selectedKeywords.includes(kw.tag)
-                    ? "bg-[#EEF3FF] border-[#2F6BFF] text-[#2F6BFF]"
-                    : "border-[#E5E7EB] text-[#6B7280] hover:border-[#C0C0C0]"
-                )}
-              >
-                {kw.tag}
-                <span className="text-[10px] text-[#22C55E] font-semibold">{kw.delta}</span>
-              </button>
-            ))}
-          </div>
+          {trendsLoading ? (
+            <div className="flex gap-2 flex-wrap">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-8 w-20 rounded-full bg-[#F3F4F6] animate-pulse" />
+              ))}
+            </div>
+          ) : trends.length === 0 ? (
+            <p className="text-[12px] text-[#9CA3AF]">트렌드 데이터를 불러올 수 없습니다.</p>
+          ) : (
+            <div className="flex gap-2 flex-wrap">
+              {trends.map((kw) => (
+                <button key={kw.tag} onClick={() => toggleKeyword(kw.tag)}
+                  className={clsx(
+                    "px-3 py-1.5 rounded-full text-[13px] font-medium border transition-colors flex items-center gap-1.5",
+                    selectedKeywords.includes(kw.tag)
+                      ? "bg-[#EEF3FF] border-[#2F6BFF] text-[#2F6BFF]"
+                      : "border-[#E5E7EB] text-[#6B7280] hover:border-[#C0C0C0]"
+                  )}>
+                  {kw.tag}
+                  {kw.up > 0 && (
+                    <span className="text-[10px] text-[#22C55E] font-semibold">▲{kw.up}</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      <button
-        onClick={handleGenerate}
-        disabled={!product.trim() || isLoading}
+      {/* Error */}
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#EF4444]">
+          {error}
+        </div>
+      )}
+
+      <button onClick={handleGenerate} disabled={!product.trim() || isLoading}
         className="w-full bg-[#2F6BFF] text-white py-3.5 rounded-lg text-[15px] font-semibold
           hover:bg-[#1a56e8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed
-          flex items-center justify-center gap-2 mb-8"
-      >
+          flex items-center justify-center gap-2 mb-8">
         {isLoading ? (
           <>
             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -155,32 +163,28 @@ export default function GeneratePage() {
             생성된 문구 후보 · 리스크 자동 검토 완료
           </p>
           <div className="space-y-3">
-            {results.map((r) => {
-              const levelColor =
-                r.level === "안전" ? "#22C55E" : r.level === "주의" ? "#F59E0B" : "#EF4444";
+            {results.map((r, i) => {
+              const levelColor = SAFETY_COLOR[r.safety_label] ?? "#9CA3AF";
               return (
-                <div
-                  key={r.id}
-                  className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex items-center gap-4"
-                >
+                <div key={i} className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex items-center gap-4">
                   <div className="flex-1">
                     <p className="text-[15px] font-semibold text-[#111]">{r.text}</p>
+                    {r.note && <p className="text-[12px] text-[#9CA3AF] mt-0.5">{r.note}</p>}
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <div
-                      className="text-[12px] font-bold px-2 py-0.5 rounded"
-                      style={{ color: levelColor, background: levelColor + "18" }}
-                    >
-                      {r.level}
+                    <div className="text-[12px] font-bold px-2 py-0.5 rounded"
+                      style={{ color: levelColor, background: levelColor + "18" }}>
+                      {r.safety_label}
                     </div>
-                    <span className="text-[13px] font-black" style={{ color: levelColor }}>
-                      {r.score}
-                    </span>
+                    <span className="text-[13px] font-black" style={{ color: levelColor }}>{r.score}</span>
                     <span className="text-[11px] text-[#9CA3AF]">/100</span>
                   </div>
-                  <button className="shrink-0 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[12px] font-semibold text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
-                    검토로 이동
-                  </button>
+                  {r.review_id && (
+                    <a href={`/review/${r.review_id}`}
+                      className="shrink-0 px-3 py-1.5 rounded-lg border border-[#E5E7EB] text-[12px] font-semibold text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
+                      검토로 이동
+                    </a>
+                  )}
                 </div>
               );
             })}
