@@ -366,10 +366,6 @@ export default function ReviewResultPage() {
               className="px-4 py-2.5 rounded-lg border border-[#E5E7EB] text-[13px] font-semibold text-[#6B7280] hover:bg-[#F3F4F6] transition-colors">
               ← 다시 검토
             </a>
-            <a href="/history"
-              className="px-4 py-2.5 rounded-lg bg-[#2F6BFF] text-white text-[13px] font-semibold hover:bg-[#1a56e8] transition-colors">
-              히스토리 보기
-            </a>
           </div>
         </div>
       )}

@@ -49,17 +49,6 @@ export default function Navbar() {
           })}
         </nav>
 
-        {/* Right side */}
-        <div className="ml-auto flex items-center gap-4">
-          <div className="flex items-center gap-1.5 text-[12px] text-[#6B7280]">
-            <span className="w-2 h-2 rounded-full bg-[#22C55E] inline-block" />
-            데이터 업데이트&nbsp;
-            <span className="text-[#111] font-medium">2분 전</span>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-[#2F6BFF] flex items-center justify-center text-white text-[12px] font-bold cursor-pointer select-none">
-            JK
-          </div>
-        </div>
       </div>
     </header>
   );
