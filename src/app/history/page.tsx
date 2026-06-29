@@ -1,7 +1,11 @@
+"use client";
+
 import clsx from "clsx";
+import { useRouter } from "next/navigation";
 
 const HISTORY = [
   {
+    id: "demo",
     date: "2026.06.22",
     title: "여름 워터파크 프로모션 헤드라인",
     preview: "…책상을 탁 치고 떠나는 시원한…",
@@ -10,6 +14,7 @@ const HISTORY = [
     score: 78,
   },
   {
+    id: "demo",
     date: "2026.06.21",
     title: "신상 음료 SNS 카피 A/B",
     preview: "한 입에 시원하게 갓생 중진",
@@ -18,6 +23,7 @@ const HISTORY = [
     score: 34,
   },
   {
+    id: "demo",
     date: "2026.06.20",
     title: "브랜드 캠페인 슬로건",
     preview: "다시의 한 끼를 나눠요",
@@ -26,6 +32,7 @@ const HISTORY = [
     score: 8,
   },
   {
+    id: "demo",
     date: "2026.06.19",
     title: "여름 시즌 배너 문구",
     preview: "이번 여름은 갓성비로 즐겨요",
@@ -34,6 +41,7 @@ const HISTORY = [
     score: 15,
   },
   {
+    id: "demo",
     date: "2026.06.18",
     title: "신규 멤버십 혜택 안내",
     preview: "멤버십으로 700하세요",
@@ -56,6 +64,8 @@ function scoreColor(s: number) {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
+
   return (
     <div className="max-w-[900px] mx-auto px-6 py-8">
       <h1 className="text-[26px] font-black text-[#111] mb-6">검토 히스토리</h1>
@@ -106,6 +116,7 @@ export default function HistoryPage() {
                 <tr
                   key={i}
                   className="border-b border-[#F9FAFB] last:border-0 hover:bg-[#FAFAFA] cursor-pointer transition-colors"
+                  onClick={() => router.push(`/review/${row.id}`)}
                 >
                   <td className="px-5 py-4 text-[12px] text-[#9CA3AF] whitespace-nowrap">
                     {row.date}

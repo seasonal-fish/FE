@@ -134,8 +134,8 @@ export default function GeneratePage() {
       <button
         onClick={handleGenerate}
         disabled={!product.trim() || isLoading}
-        className="w-full bg-[#111] text-white py-3.5 rounded-lg text-[15px] font-semibold
-          hover:bg-[#333] transition-colors disabled:opacity-40 disabled:cursor-not-allowed
+        className="w-full bg-[#2F6BFF] text-white py-3.5 rounded-lg text-[15px] font-semibold
+          hover:bg-[#1a56e8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed
           flex items-center justify-center gap-2 mb-8"
       >
         {isLoading ? (
