@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileImage, X } from "lucide-react";
+import { postReview } from "@/lib/api";
 
 type InputTab = "text" | "ocr";
 
@@ -14,6 +15,7 @@ export default function ReviewPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (file: File) => {
     if (file.type.startsWith("image/") || file.type === "application/pdf") {
@@ -30,12 +32,17 @@ export default function ReviewPage() {
 
   const canSubmit = inputTab === "text" ? text.trim().length > 0 : uploadedFile !== null;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
+    setError(null);
     setIsLoading(true);
-    setTimeout(() => {
-      router.push("/review/demo");
-    }, 1500);
+    try {
+      const result = await postReview(text);
+      router.push(`/review/${result.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "검토 요청에 실패했습니다.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -124,6 +131,7 @@ export default function ReviewPage() {
                 포스터 이미지를 드래그하거나 클릭해서 업로드
               </p>
               <p className="text-[12px] text-[#9CA3AF] mt-1">PNG, JPG, PDF · 최대 10MB</p>
+              <p className="text-[11px] text-[#EF4444] mt-2">OCR 연동은 준비 중입니다</p>
             </div>
           )}
           <input
@@ -139,10 +147,17 @@ export default function ReviewPage() {
         </div>
       )}
 
+      {/* Error message */}
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] text-[13px] text-[#EF4444]">
+          {error}
+        </div>
+      )}
+
       {/* Submit */}
       <button
         onClick={handleSubmit}
-        disabled={!canSubmit || isLoading}
+        disabled={!canSubmit || isLoading || inputTab === "ocr"}
         className="w-full bg-[#2F6BFF] text-white py-3.5 rounded-lg text-[15px] font-semibold
           hover:bg-[#1a56e8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed
           flex items-center justify-center gap-2"
