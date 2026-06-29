@@ -162,8 +162,8 @@ export default function ReviewResultPage() {
 
   const scoreColor = SCORE >= 67 ? "#EF4444" : SCORE >= 34 ? "#F59E0B" : "#22C55E";
   const tabs: { id: Tab; label: string }[] = [
-    { id: "inline", label: "인라인 하이라이트" },
-    { id: "gauge", label: "게이지" },
+    { id: "inline", label: "개요" },
+    { id: "gauge", label: "위험도" },
     { id: "diff", label: "Before→After" },
   ];
 
@@ -199,7 +199,7 @@ export default function ReviewResultPage() {
       </div>
 
       {/* ══════════════════════════════════════════════
-          TAB: 인라인 하이라이트
+          TAB: 개요
       ══════════════════════════════════════════════ */}
       {tab === "inline" && (
         <>
@@ -357,7 +357,7 @@ export default function ReviewResultPage() {
       )}
 
       {/* ══════════════════════════════════════════════
-          TAB: 게이지
+          TAB: 위험도
       ══════════════════════════════════════════════ */}
       {tab === "gauge" && (
         <div className="space-y-4">
