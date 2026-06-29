@@ -68,6 +68,17 @@ export type TrendItem = {
   up: number;
 };
 
+export type UploadImageResult = {
+  id: string;
+  file_name: string;
+  content_type: string;
+  file_size_bytes: number;
+  ocr_provider: "clova";
+  ocr_status: "pending" | "processing" | "done" | "failed";
+  ocr_text?: string;
+  created_at: string;
+};
+
 export type GenerateCandidate = {
   text: string;
   score: number;
@@ -75,6 +86,20 @@ export type GenerateCandidate = {
   note: string;
   review_id?: string;
 };
+
+export async function uploadImage(file: File): Promise<UploadImageResult> {
+  const formData = new FormData();
+  formData.append("image", file);
+  const res = await fetch(`${BASE}/upload-image`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? res.statusText);
+  }
+  return res.json();
+}
 
 export async function postReview(text: string): Promise<ReviewResult> {
   const res = await fetch(`${BASE}/review`, {

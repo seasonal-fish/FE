@@ -57,7 +57,7 @@ export default function HistoryPage() {
           ))}
         </div>
       ) : (
-        <div className={`grid grid-cols-${Math.max(stats.length, 1)} gap-3 mb-6`}>
+        <div className="grid grid-cols-3 gap-3 mb-6">
           {stats.map((s) => (
             <div key={s.label} className="bg-white rounded-xl border border-[#E5E7EB] p-4">
               <p className="text-[12px] text-[#6B7280] font-medium mb-2">{s.label}</p>

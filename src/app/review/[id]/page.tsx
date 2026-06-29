@@ -152,8 +152,6 @@ export default function ReviewResultPage() {
     { id: "diff", label: "Before→After" },
   ];
 
-  const selLevel = selected ? korLevel(selected.severity) : "낮음";
-
   return (
     <div className="max-w-[900px] mx-auto px-6 py-8">
       {/* ── Page header ── */}
@@ -163,9 +161,7 @@ export default function ReviewResultPage() {
             Review Result · {id?.slice(0, 10)}
           </p>
           <h1 className="text-[22px] font-black text-[#111]">
-            {result.verdict.advice
-              ? result.verdict.advice.slice(0, 40)
-              : result.input.slice(0, 40)}
+            {result.input.slice(0, 40)}
           </h1>
         </div>
         <div className="flex bg-[#F3F4F6] rounded-lg p-1 gap-0.5 shrink-0">
@@ -211,6 +207,13 @@ export default function ReviewResultPage() {
                 ))}
               </div>
             </div>
+            {result.verdict.reasons.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-[#F3F4F6]">
+                {result.verdict.reasons.map((r, i) => (
+                  <p key={i} className="text-[12px] text-[#6B7280] leading-[1.7]">{r}</p>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Text highlight + detail panel */}
@@ -248,45 +251,99 @@ export default function ReviewResultPage() {
               )}
             </div>
 
-            {selected ? (
-              <div className="rounded-xl border p-4 flex flex-col gap-3"
-                style={{ borderColor: LEVEL[selLevel].border, backgroundColor: LEVEL[selLevel].bg }}>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="w-2 h-2 rounded-full shrink-0" style={{ background: LEVEL[selLevel].color }} />
-                  <span className="text-[13px] font-bold text-[#111]">&ldquo;{selected.phrase}&rdquo;</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white"
-                    style={{ background: LEVEL[selLevel].color }}>{selLevel}</span>
+            <div className="rounded-xl border border-[#E5E7EB] overflow-hidden">
+              {result.highlights.length > 0 ? (
+                <div className="overflow-y-auto" style={{ maxHeight: "480px" }}>
+                  {result.highlights.map((h, i) => {
+                    const lv = korLevel(h.severity);
+                    const isActive = selected?.phrase === h.phrase;
+                    return (
+                      <div
+                        key={i}
+                        onClick={() => setSelected(h)}
+                        className={`p-4 cursor-pointer transition-colors border-b border-[#F3F4F6] last:border-0 ${!isActive ? "hover:bg-[#F9FAFB]" : ""}`}
+                        style={{ backgroundColor: isActive ? LEVEL[lv].bg : undefined }}
+                      >
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: LEVEL[lv].color }} />
+                          <span className="text-[13px] font-bold text-[#111]">&ldquo;{h.phrase}&rdquo;</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white shrink-0" style={{ background: LEVEL[lv].color }}>{lv}</span>
+                          {h.severity === "needs_review" && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border border-[#FDE68A] text-[#F59E0B] ml-auto">needs_review</span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-[#9CA3AF] font-medium mb-1.5">
+                          {[h.tag, h.category, h.date].filter(Boolean).join(" · ")}
+                        </p>
+                        <p className="text-[12px] text-[#374151] leading-[1.7] mb-1.5">{h.reason}</p>
+                        <p className="text-[10px] text-[#9CA3AF] mb-2">근거: {h.basis}</p>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <span className="text-[11px] text-[#6B7280]">신뢰도</span>
+                          <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden border border-[#E5E7EB]">
+                            <div className="h-full rounded-full" style={{ width: `${Math.round(h.confidence * 100)}%`, background: LEVEL[lv].color }} />
+                          </div>
+                          <span className="text-[11px] font-bold" style={{ color: LEVEL[lv].color }}>{Math.round(h.confidence * 100)}%</span>
+                        </div>
+                        {h.alt && (
+                          <div className="bg-white rounded-lg p-2.5 border border-[#E5E7EB]">
+                            <p className="text-[10px] text-[#9CA3AF] mb-0.5">대안 →</p>
+                            <p className="text-[12px] font-semibold text-[#2F6BFF]">{h.alt}</p>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-                <p className="text-[10px] text-[#9CA3AF] font-medium -mt-1">
-                  {[selected.tag, selected.category, selected.date].filter(Boolean).join(" · ")}
-                </p>
-                <p className="text-[12px] text-[#374151] leading-[1.7]">{selected.reason}</p>
-                <p className="text-[10px] text-[#9CA3AF]">근거: {selected.basis}</p>
-                <div>
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[11px] text-[#6B7280]">신뢰도</span>
-                    <div className="flex-1 h-1.5 bg-white rounded-full overflow-hidden">
-                      <div className="h-full rounded-full"
-                        style={{ width: `${Math.round(selected.confidence * 100)}%`, background: LEVEL[selLevel].color }} />
-                    </div>
-                    <span className="text-[11px] font-bold" style={{ color: LEVEL[selLevel].color }}>
-                      {Math.round(selected.confidence * 100)}%
-                    </span>
+              ) : result.related_topics.length > 0 ? (
+                <div className="p-4 overflow-y-auto" style={{ maxHeight: "480px" }}>
+                  <p className="text-[11px] text-[#9CA3AF] font-semibold mb-3 uppercase tracking-wider">검토된 연관 민감 주제</p>
+                  <div className="space-y-3">
+                    {result.related_topics.slice(0, 5).map((topic) => (
+                      <div key={topic.id} className="border-b border-[#F3F4F6] pb-3 last:border-0 last:pb-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] bg-[#F3F4F6] text-[#6B7280] px-2 py-0.5 rounded font-medium">{topic.category}</span>
+                          {topic.event_date && <span className="text-[10px] text-[#9CA3AF]">{topic.event_date}</span>}
+                        </div>
+                        <p className="text-[12px] font-semibold text-[#374151] mb-1">{topic.title}</p>
+                        <p className="text-[11px] text-[#6B7280] leading-[1.6] line-clamp-2">{topic.description}</p>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <span className="text-[10px] text-[#9CA3AF]">유사도</span>
+                          <div className="flex-1 h-1 bg-[#F3F4F6] rounded-full overflow-hidden">
+                            <div className="h-full bg-[#2F6BFF] rounded-full" style={{ width: `${Math.round(topic.similarity * 100)}%` }} />
+                          </div>
+                          <span className="text-[10px] text-[#2F6BFF] font-semibold">{Math.round(topic.similarity * 100)}%</span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-                {selected.alt && (
-                  <div className="bg-white rounded-lg p-3 border border-[#E5E7EB]">
-                    <p className="text-[10px] text-[#9CA3AF] mb-1">대안 →</p>
-                    <p className="text-[13px] font-semibold text-[#2F6BFF]">{selected.alt}</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="rounded-xl border border-[#E5E7EB] p-4 flex items-center justify-center text-[13px] text-[#9CA3AF]">
-                표현을 클릭하면 상세 정보가 표시됩니다
-              </div>
-            )}
+              ) : (
+                <div className="flex items-center justify-center h-32 text-[13px] text-[#9CA3AF]">
+                  위험 표현이 발견되지 않았습니다
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Precedents */}
+          {result.precedents.length > 0 && (
+            <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+              <p className="text-[11px] text-[#9CA3AF] font-semibold mb-3 uppercase tracking-wider">
+                실제 논란 전례
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {result.precedents.map((p) => (
+                  <div key={p.issue_id} className="border border-[#F3F4F6] rounded-lg p-3">
+                    <span className="text-[10px] bg-[#F3F4F6] text-[#6B7280] px-2 py-0.5 rounded font-medium inline-block mb-1.5">
+                      {p.region}
+                    </span>
+                    <p className="text-[12px] font-semibold text-[#374151] mb-1">{p.title}</p>
+                    <p className="text-[11px] text-[#6B7280] leading-[1.6]">{p.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
