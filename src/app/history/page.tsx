@@ -5,11 +5,6 @@ import clsx from "clsx";
 import { useRouter } from "next/navigation";
 import { getHistoryList, getHistoryStats, type HistoryItem, type StatCard } from "@/lib/api";
 
-const STATUS_STYLE: Record<string, string> = {
-  "검토 완료":   "bg-[#F3F4F6] text-[#6B7280]",
-  "needs_review": "bg-[#FEF3C7] text-[#92400E]",
-};
-
 function scoreColor(s: number) {
   if (s >= 67) return "#EF4444";
   if (s >= 34) return "#F59E0B";
@@ -21,11 +16,9 @@ function formatDate(dateStr: string) {
 }
 
 function srcLabel(src: string) {
-  return src === "generate" ? "생성" : "텍스트";
-}
-
-function statusLabel(status: string) {
-  return status === "reviewed" ? "검토 완료" : "needs_review";
+  if (src === "generate") return "생성";
+  if (src === "image") return "이미지";
+  return "텍스트";
 }
 
 export default function HistoryPage() {
@@ -83,7 +76,7 @@ export default function HistoryPage() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-[#F3F4F6]">
-              {["DATE", "문구", "출처", "상태", "위험도"].map((h) => (
+              {["DATE", "문구", "출처", "위험도"].map((h) => (
                 <th key={h}
                   className={clsx(
                     "text-left px-5 py-3 text-[11px] font-semibold text-[#9CA3AF] tracking-wider uppercase",
@@ -98,7 +91,7 @@ export default function HistoryPage() {
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="border-b border-[#F9FAFB]">
-                  {Array.from({ length: 5 }).map((__, j) => (
+                  {Array.from({ length: 4 }).map((__, j) => (
                     <td key={j} className="px-5 py-4">
                       <div className="h-4 bg-[#F3F4F6] rounded animate-pulse" />
                     </td>
@@ -107,14 +100,13 @@ export default function HistoryPage() {
               ))
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-5 py-12 text-center text-[13px] text-[#9CA3AF]">
+                <td colSpan={4} className="px-5 py-12 text-center text-[13px] text-[#9CA3AF]">
                   검토 기록이 없습니다. 문구를 검토해보세요.
                 </td>
               </tr>
             ) : (
               items.map((row) => {
                 const color = scoreColor(row.score);
-                const label = statusLabel(row.status);
                 return (
                   <tr key={row.id}
                     className="border-b border-[#F9FAFB] last:border-0 hover:bg-[#FAFAFA] cursor-pointer transition-colors"
@@ -128,12 +120,6 @@ export default function HistoryPage() {
                     </td>
                     <td className="px-5 py-4 text-[13px] text-[#6B7280] whitespace-nowrap">
                       {srcLabel(row.src)}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className={clsx("text-[12px] font-semibold px-2.5 py-1 rounded-full",
-                        STATUS_STYLE[label] ?? "bg-[#F3F4F6] text-[#6B7280]")}>
-                        {label}
-                      </span>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <span className="inline-flex items-center justify-center min-w-[40px] h-[32px] rounded-lg border-2 text-[15px] font-black px-2"

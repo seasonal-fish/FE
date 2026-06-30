@@ -88,11 +88,65 @@ function DonutGauge({ score }: { score: number }) {
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#F3F4F6" strokeWidth="20" />
       <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth="20" strokeLinecap="round"
         strokeDasharray={`${fillLen} ${circumference}`} transform={`rotate(-90 ${cx} ${cy})`} />
-      <text x={cx} y={cy - 10} textAnchor="middle" fontSize="44" fontWeight="900" fill={color}
+      <text x={cx} y={cy - 6} textAnchor="middle" dominantBaseline="central" fontSize="44" fontWeight="900" fill={color}
         fontFamily="-apple-system, BlinkMacSystemFont, sans-serif">{score}</text>
-      <text x={cx} y={cy + 18} textAnchor="middle" fontSize="13" fill="#6B7280"
+      <text x={cx} y={cy + 26} textAnchor="middle" dominantBaseline="central" fontSize="13" fill="#6B7280"
         fontFamily="-apple-system, BlinkMacSystemFont, sans-serif">{label}</text>
     </svg>
+  );
+}
+
+// ── Related evidence group (BE related_* arrays) ──────────────────────────────
+type Evidence = {
+  title: string;
+  snippet?: string;
+  similarity: number;
+  groupTitle: string;
+  groupColor: string;
+};
+
+function RelatedGroup({
+  title,
+  color,
+  items,
+  onSelect,
+}: {
+  title: string;
+  color: string;
+  items: { id: string; title: string; snippet?: string; similarity: number }[];
+  onSelect: (e: Evidence) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div>
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+        <span className="text-[12px] font-bold text-[#111]">{title}</span>
+        <span className="text-[10px] text-[#9CA3AF]">{items.length}</span>
+      </div>
+      <div className="space-y-1.5">
+        {items.slice(0, 3).map((it) => (
+          <div
+            key={it.id}
+            onClick={() =>
+              onSelect({
+                title: it.title,
+                snippet: it.snippet,
+                similarity: it.similarity,
+                groupTitle: title,
+                groupColor: color,
+              })
+            }
+            className="rounded-lg border border-[#F3F4F6] bg-[#FAFAFA] p-2.5 cursor-pointer hover:bg-[#F3F4F6] transition-colors"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-semibold text-[#111] truncate">{it.title}</span>
+            </div>
+            {it.snippet && <p className="text-[11px] text-[#9CA3AF] mt-0.5 truncate">{it.snippet}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -104,6 +158,7 @@ export default function ReviewResultPage() {
   const [tab, setTab] = useState<Tab>("inline");
   const [result, setResult] = useState<ReviewResult | null>(null);
   const [selected, setSelected] = useState<Highlight | null>(null);
+  const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -139,6 +194,8 @@ export default function ReviewResultPage() {
   const scoreColor = score >= 67 ? "#EF4444" : score >= 34 ? "#F59E0B" : "#22C55E";
   const scoreLabel = score >= 67 ? "위험 · 높음" : score >= 34 ? "주의" : "안전";
   const segments = buildSegments(result.input, result.highlights);
+  // 원본과 제안이 같으면 실제 수정 제안이 없는 것 → Before/After 비교 대신 단일 안내로 표시
+  const noRewrite = result.rewrite.before.trim() === result.rewrite.after.trim();
 
   const counts = {
     위험: result.highlights.filter((h) => h.severity === "high").length,
@@ -157,16 +214,11 @@ export default function ReviewResultPage() {
   return (
     <div className="max-w-[900px] mx-auto px-6 py-8">
       {/* ── Page header ── */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="text-[11px] text-[#9CA3AF] font-semibold tracking-widest mb-1 uppercase">
+          <p className="text-[11px] text-[#9CA3AF] font-semibold tracking-widest uppercase">
             Review Result · {id?.slice(0, 10)}
           </p>
-          <h1 className="text-[22px] font-black text-[#111]">
-            {result.verdict.advice
-              ? result.verdict.advice.slice(0, 40)
-              : result.input.slice(0, 40)}
-          </h1>
         </div>
         <div className="flex bg-[#F3F4F6] rounded-lg p-1 gap-0.5 shrink-0">
           {tabs.map((t) => (
@@ -217,7 +269,7 @@ export default function ReviewResultPage() {
           <div className="grid grid-cols-[1fr_260px] gap-4">
             <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
               <p className="text-[11px] text-[#9CA3AF] font-semibold mb-3 uppercase tracking-wider">
-                입력 문구 · 위험 표현 표시
+                {result.highlights.length > 0 ? "입력 문구 · 위험 표현 표시" : "입력 문구"}
               </p>
               <p className="text-[18px] leading-[2.2] text-[#111]">
                 {segments.map((seg, i) =>
@@ -281,12 +333,49 @@ export default function ReviewResultPage() {
                   </div>
                 )}
               </div>
+            ) : result.highlights.length === 0 ? (
+              <div
+                className="rounded-xl border p-5 flex flex-col items-center justify-center text-center gap-2"
+                style={{ borderColor: LEVEL.낮음.border, backgroundColor: LEVEL.낮음.bg }}
+              >
+                <span
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-white text-[18px] font-black"
+                  style={{ background: LEVEL.낮음.color }}
+                >
+                  ✓
+                </span>
+                <p className="text-[13px] font-bold text-[#111]">위험 표현이 발견되지 않았습니다</p>
+              </div>
             ) : (
               <div className="rounded-xl border border-[#E5E7EB] p-4 flex items-center justify-center text-[13px] text-[#9CA3AF]">
                 표현을 클릭하면 상세 정보가 표시됩니다
               </div>
             )}
           </div>
+
+          {/* 관련 근거 — 위험도가 '안전(score<34)'이면 노출하지 않고 주의 이상에서만 표시 */}
+          {score >= 34 &&
+            result.related_topics.length + result.related_issues.length > 0 && (
+            <div className="bg-white rounded-xl border border-[#E5E7EB] p-5 mt-4">
+              <p className="text-[11px] text-[#9CA3AF] font-semibold mb-3 uppercase tracking-wider">
+                관련 근거
+              </p>
+              <div className="grid grid-cols-2 gap-x-5 gap-y-4">
+                <RelatedGroup
+                  title="민감 주제"
+                  color="#EF4444"
+                  onSelect={setEvidence}
+                  items={result.related_topics.map((t) => ({
+                    id: t.id,
+                    title: t.title,
+                    snippet: t.description,
+                    similarity: t.similarity,
+                  }))}
+                />
+                <RelatedGroup title="유사 논란 사례" color="#F59E0B" onSelect={setEvidence} items={result.related_issues} />
+              </div>
+            </div>
+          )}
         </>
       )}
 
@@ -343,16 +432,36 @@ export default function ReviewResultPage() {
             })}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-              <p className="text-[11px] font-bold text-[#9CA3AF] mb-4 tracking-widest">BEFORE · 원본</p>
-              <p className="text-[17px] leading-[1.8] text-[#111]">{result.rewrite.before}</p>
+          {noRewrite ? (
+            <div
+              className="bg-white rounded-xl border p-5"
+              style={{ borderColor: LEVEL.낮음.border }}
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <span
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[13px] font-black shrink-0"
+                  style={{ background: LEVEL.낮음.color }}
+                >
+                  ✓
+                </span>
+                <p className="text-[12px] font-bold tracking-widest" style={{ color: LEVEL.낮음.color }}>
+                  수정 제안 없음 · 현재 문구 그대로 사용 가능
+                </p>
+              </div>
+              <p className="text-[17px] leading-[1.8] text-[#111]">{result.rewrite.before || result.input}</p>
             </div>
-            <div className="bg-white rounded-xl border border-[#BBF7D0] p-5">
-              <p className="text-[11px] font-bold text-[#9CA3AF] mb-4 tracking-widest">AFTER · 제안</p>
-              <p className="text-[17px] leading-[1.8] text-[#2F6BFF] font-semibold">{result.rewrite.after}</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+                <p className="text-[11px] font-bold text-[#9CA3AF] mb-4 tracking-widest">BEFORE · 원본</p>
+                <p className="text-[17px] leading-[1.8] text-[#111]">{result.rewrite.before}</p>
+              </div>
+              <div className="bg-white rounded-xl border border-[#BBF7D0] p-5">
+                <p className="text-[11px] font-bold text-[#9CA3AF] mb-4 tracking-widest">AFTER · 제안</p>
+                <p className="text-[17px] leading-[1.8] text-[#2F6BFF] font-semibold">{result.rewrite.after}</p>
+              </div>
             </div>
-          </div>
+          )}
 
           {result.verdict.advice && (
             <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
@@ -370,6 +479,51 @@ export default function ReviewResultPage() {
               className="px-4 py-2.5 rounded-lg bg-[#2F6BFF] text-white text-[13px] font-semibold hover:bg-[#1a56e8] transition-colors">
               히스토리 보기
             </a>
+          </div>
+        </div>
+      )}
+
+      {/* 관련 근거 전문 모달 */}
+      {evidence && (
+        <div
+          onClick={() => setEvidence(null)}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-[#E5E7EB] shadow-xl max-w-[760px] w-full max-h-[85vh] overflow-y-auto p-9"
+          >
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: evidence.groupColor }} />
+                <span className="text-[12px] font-bold" style={{ color: evidence.groupColor }}>
+                  {evidence.groupTitle}
+                </span>
+              </div>
+              <button
+                onClick={() => setEvidence(null)}
+                className="text-[#9CA3AF] hover:text-[#111] text-[20px] leading-none shrink-0"
+                aria-label="닫기"
+              >
+                ×
+              </button>
+            </div>
+            <h3
+              className="text-[19px] font-black text-[#111] mb-4 leading-snug"
+              style={{ wordBreak: "keep-all", textWrap: "balance" }}
+            >
+              {evidence.title}
+            </h3>
+            {evidence.snippet ? (
+              <p
+                className="text-[15px] text-[#374151] leading-[2] whitespace-pre-wrap border-t border-[#F3F4F6] pt-4"
+                style={{ wordBreak: "keep-all", textWrap: "pretty" }}
+              >
+                {evidence.snippet}
+              </p>
+            ) : (
+              <p className="text-[13px] text-[#9CA3AF] border-t border-[#F3F4F6] pt-4">추가 설명이 없습니다.</p>
+            )}
           </div>
         </div>
       )}

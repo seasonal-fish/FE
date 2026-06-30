@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileImage, X } from "lucide-react";
-import { postReview } from "@/lib/api";
+import { postReview, uploadImage } from "@/lib/api";
 
 type InputTab = "text" | "ocr";
 
@@ -18,8 +18,12 @@ export default function ReviewPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleFileChange = (file: File) => {
-    if (file.type.startsWith("image/") || file.type === "application/pdf") {
+    // BE /upload-image 는 image/* 만 허용한다(PDF 미지원).
+    if (file.type.startsWith("image/")) {
       setUploadedFile(file);
+      setError(null);
+    } else {
+      setError("이미지 파일(PNG, JPG)만 업로드할 수 있습니다.");
     }
   };
 
@@ -37,7 +41,22 @@ export default function ReviewPage() {
     setError(null);
     setIsLoading(true);
     try {
-      const result = await postReview(text);
+      let reviewText = text;
+      let isImage = false;
+      // OCR 탭: 이미지를 업로드해 CLOVA OCR 로 텍스트를 추출한 뒤 그 텍스트로 검토한다.
+      if (inputTab === "ocr" && uploadedFile) {
+        const uploaded = await uploadImage(uploadedFile);
+        const extracted = (uploaded.ocr_text ?? "").trim();
+        if (!extracted) {
+          setError("이미지에서 텍스트를 추출하지 못했습니다. 다른 이미지를 시도해 주세요.");
+          setIsLoading(false);
+          return;
+        }
+        reviewText = extracted;
+        isImage = true;
+      }
+      // 출처가 이미지(OCR)면 BE에 source 를 알려 히스토리에 "이미지"로 기록되게 한다.
+      const result = await postReview(reviewText, isImage ? "image" : undefined);
       router.push(`/review/${result.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "검토 요청에 실패했습니다.");
@@ -60,7 +79,7 @@ export default function ReviewPage() {
       <div className="flex gap-0 mb-5 border-b border-[#E5E7EB]">
         {([
           { id: "text", label: "문구 입력" },
-          { id: "ocr", label: "OCR 업로드" },
+          { id: "ocr", label: "이미지 업로드" },
         ] as { id: InputTab; label: string }[]).map((tab) => (
           <button
             key={tab.id}
@@ -104,7 +123,7 @@ export default function ReviewPage() {
               <div className="flex-1">
                 <p className="text-[13px] font-medium text-[#111]">{uploadedFile.name}</p>
                 <p className="text-[11px] text-[#9CA3AF]">
-                  {(uploadedFile.size / 1024).toFixed(0)} KB · OCR 추출 후 검토
+                  {(uploadedFile.size / 1024).toFixed(0)} KB · 문구 추출 후 검토
                 </p>
               </div>
               <button
@@ -130,14 +149,14 @@ export default function ReviewPage() {
               <p className="text-[14px] font-medium text-[#6B7280]">
                 포스터 이미지를 드래그하거나 클릭해서 업로드
               </p>
-              <p className="text-[12px] text-[#9CA3AF] mt-1">PNG, JPG, PDF · 최대 10MB</p>
-              <p className="text-[11px] text-[#EF4444] mt-2">OCR 연동은 준비 중입니다</p>
+              <p className="text-[12px] text-[#9CA3AF] mt-1">PNG, JPG · 최대 5MB</p>
+              <p className="text-[11px] text-[#9CA3AF] mt-2">업로드하면 CLOVA OCR로 텍스트를 추출해 검토합니다</p>
             </div>
           )}
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,application/pdf"
+            accept="image/*"
             className="hidden"
             onChange={(e) => {
               const file = e.target.files?.[0];
@@ -157,7 +176,7 @@ export default function ReviewPage() {
       {/* Submit */}
       <button
         onClick={handleSubmit}
-        disabled={!canSubmit || isLoading || inputTab === "ocr"}
+        disabled={!canSubmit || isLoading}
         className="w-full bg-[#2F6BFF] text-white py-3.5 rounded-lg text-[15px] font-semibold
           hover:bg-[#1a56e8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed
           flex items-center justify-center gap-2"
@@ -165,7 +184,7 @@ export default function ReviewPage() {
         {isLoading ? (
           <>
             <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            분석 중...
+            {inputTab === "ocr" ? "OCR 추출 후 분석 중..." : "분석 중..."}
           </>
         ) : (
           "리스크 검토 시작 →"
@@ -173,7 +192,7 @@ export default function ReviewPage() {
       </button>
 
       <p className="text-[12px] text-[#9CA3AF] text-center mt-4">
-        검토 결과는 약 3–5초 내에 제공됩니다. 최종 판단은 사람이 확인하세요.
+        검토 결과는 4초 ~ 최대 8초 내에 제공됩니다.
       </p>
     </div>
   );

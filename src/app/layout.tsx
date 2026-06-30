@@ -3,7 +3,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 
 export const metadata: Metadata = {
-  title: "AdGuard — 광고 카피 리스크 검토 서비스",
+  title: "요즘애드 — 광고 카피 리스크 검토 서비스",
   description:
     "광고 문구·포스터를 넣으면 사회적·역사적으로 민감하게 해석될 위험을 자동 진단해주는 서비스",
 };

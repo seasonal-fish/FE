@@ -16,6 +16,17 @@ export type Highlight = {
   alt?: string;
 };
 
+// RelatedItem 은 임베딩 테이블(sensitive_issues / slang_terms / mim_terms)에서
+// 벡터 유사도로 검색된 연관 사례 한 건입니다. source 가 출처 테이블을 가리킵니다.
+export type RelatedItem = {
+  source: string;
+  id: string;
+  title: string;
+  category?: string;
+  snippet?: string;
+  similarity: number;
+};
+
 export type ReviewResult = {
   id: string;
   input: string;
@@ -36,13 +47,9 @@ export type ReviewResult = {
     description: string;
     similarity: number;
   }>;
-  precedents: Array<{
-    issue_id: string;
-    region: string;
-    title: string;
-    description: string;
-    topic_id: string;
-  }>;
+  related_issues: RelatedItem[];
+  related_slang: RelatedItem[];
+  related_trends: RelatedItem[];
 };
 
 export type HistoryItem = {
@@ -50,7 +57,7 @@ export type HistoryItem = {
   date: string;
   title: string;
   snippet: string;
-  src: "text" | "generate";
+  src: "text" | "generate" | "image";
   status: "reviewed" | "needs_review";
   score: number;
 };
@@ -62,10 +69,15 @@ export type StatCard = {
   sub: string;
 };
 
+// mim_terms 기반 활성도 한 건 (GET /trends).
 export type TrendItem = {
   tag: string;
   category: string;
-  up: number;
+  definition: string; // 신조어 설명 (mim_terms.definition)
+  up: number; // trend_score (활성도 점수, 음수 가능)
+  rank: number;
+  delta: number; // 최근 7일 평균 - 직전 7일 평균(search_ratios_90d 기반)
+  ratios: number[]; // search_ratios_90d (최근 90일 일별 검색비율 0~100)
 };
 
 export type GenerateCandidate = {
@@ -76,11 +88,45 @@ export type GenerateCandidate = {
   review_id?: string;
 };
 
-export async function postReview(text: string): Promise<ReviewResult> {
+// 민감 사건 목록 한 행 (GET /events)
+export type EventListItem = {
+  id: string;
+  title: string;
+  category: string;
+  year: string; // event_date 가 기념일(MM-DD)이라 비어 있을 수 있음
+  issue_count: number;
+};
+
+// 사건에 연결된 논란 전례 한 건. campaign/level/result 는 운영 DB에 원천이 없어 빈 값일 수 있음.
+export type EventIssue = {
+  id: string;
+  brand: string;
+  campaign: string;
+  year: string;
+  level: string;
+  copy: string;
+  result: string;
+};
+
+// 민감 사건 상세 (GET /events/:id)
+export type EventDetail = {
+  id: string;
+  title: string;
+  year: string;
+  category: string;
+  description: string;
+  issues: EventIssue[];
+};
+
+// source 는 검토 입력의 출처(예: "image" = OCR 업로드)를 BE에 알려 히스토리 src 에 반영시킨다.
+export async function postReview(
+  text: string,
+  source?: "image"
+): Promise<ReviewResult> {
   const res = await fetch(`${BASE}/review`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(source ? { text, source } : { text }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
@@ -127,6 +173,49 @@ export async function postGenerate(
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ product, tone, trends }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    throw new Error((err as { error?: string }).error ?? res.statusText);
+  }
+  return res.json();
+}
+
+export async function getEvents(
+  limit = 20,
+  offset = 0
+): Promise<{ events: EventListItem[]; total: number }> {
+  const res = await fetch(`${BASE}/events?limit=${limit}&offset=${offset}`);
+  if (!res.ok) throw new Error(res.statusText);
+  return res.json();
+}
+
+export async function getEventDetail(id: string): Promise<EventDetail> {
+  const res = await fetch(`${BASE}/events/${encodeURIComponent(id)}`);
+  if (!res.ok) throw new Error(res.statusText);
+  return res.json();
+}
+
+// 이미지 업로드(OCR) 응답. BE 가 CLOVA OCR 을 즉시 호출해 ocr_text 를 함께 반환한다.
+export type UploadImageResult = {
+  id: string;
+  file_name: string;
+  content_type: string;
+  file_size_bytes: number;
+  ocr_provider: string;
+  ocr_status: string; // done | failed | pending 등
+  ocr_text?: string;
+  created_at: string;
+};
+
+// uploadImage 는 이미지를 멀티파트로 업로드하고 OCR 추출 결과를 받는다.
+// (FormData 사용 시 Content-Type 헤더를 직접 지정하면 boundary 가 깨지므로 설정하지 않는다.)
+export async function uploadImage(file: File): Promise<UploadImageResult> {
+  const form = new FormData();
+  form.append("image", file);
+  const res = await fetch(`${BASE}/upload-image`, {
+    method: "POST",
+    body: form,
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
